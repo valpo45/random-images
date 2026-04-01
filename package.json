@@ -1,0 +1,9 @@
+{
+  "name": "random-images",
+  "version": "1.0.0",
+  "description": "Random Images Gallery",
+  "main": "servidor.js",
+  "scripts": {
+    "start": "node servidor.js"
+  }
+}

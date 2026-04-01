@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Random Images</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 20px 16px;
+    overflow: hidden;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    letter-spacing: 0.08em;
+    text-align: center;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+
+  .click-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    margin-bottom: 16px;
+    background: none;
+    border: none;
+    color: #fff;
+    transition: opacity 0.2s;
+    user-select: none;
+  }
+  .click-btn:hover { opacity: 0.6; }
+  .click-btn:active { opacity: 0.3; }
+  .click-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+
+  .click-icon {
+    width: 48px;
+    height: 48px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .click-btn.spinning .click-icon {
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .click-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #888;
+  }
+
+  .content {
+    width: 100%;
+    max-width: 860px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    animation: fadeIn 0.5s ease forwards;
+  }
+  .content.visible { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .img-wrapper {
+    width: 100%;
+    background: #0a0a0a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    position: relative;
+  }
+  .img-wrapper img {
+    width: 100%;
+    display: block;
+    max-height: 55vh;
+    object-fit: contain;
+    transition: opacity 0.4s;
+  }
+  .skeleton {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, #0a0a0a 25%, #1c1c1c 50%, #0a0a0a 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  .description {
+    width: 100%;
+    border-top: 1px solid #222;
+    padding: 12px 0 0;
+    margin-top: 12px;
+  }
+  .desc-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #555;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .dot-pulse span {
+    display: inline-block;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #555;
+    animation: pulse 1.2s infinite;
+    margin-right: 3px;
+  }
+  .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+  .desc-text {
+    font-size: 0.85rem;
+    font-weight: 300;
+    line-height: 1.7;
+    color: #ccc;
+    display: none;
+  }
+  .desc-text.visible { display: block; }
+
+  .error-box {
+    background: #1a0000;
+    border: 1px solid #550000;
+    color: #ff6666;
+    padding: 20px 28px;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    text-align: center;
+    max-width: 500px;
+    display: none;
+  }
+  .error-box.visible { display: block; }
+  .error-box strong { display: block; font-size: 1rem; margin-bottom: 8px; }
+
+  .buy-link {
+    display: inline-block;
+    margin-top: 20px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 0.2em;
+    color: #fff;
+    text-decoration: none;
+    border: 1px solid #fff;
+    padding: 8px 28px;
+    transition: background 0.2s, color 0.2s;
+  }
+  .buy-link:hover {
+    background: #fff;
+    color: #000;
+  }
+</style>
+</head>
+<body>
+
+<h1>Random Images</h1>
+
+<button class="click-btn" id="btn" onclick="generate()">
+  <div class="click-icon">&#8635;</div>
+  <span class="click-label">Click to generate</span>
+</button>
+
+<div class="error-box" id="errorBox">
+  <strong>&#9888; Servidor no encontrado</strong>
+  Abri esta pagina desde <b>http://localhost:3000/random-images.html</b><br>
+  y asegurate de que INICIAR.bat este corriendo.
+</div>
+
+<div class="content" id="content">
+  <div class="img-wrapper" id="imgWrapper">
+    <div class="skeleton" id="skeleton"></div>
+    <img id="photo" src="" alt="" style="opacity:0">
+  </div>
+  <div class="description">
+    <div class="desc-loading" id="descLoading">
+      <div class="dot-pulse"><span></span><span></span><span></span></div>
+      Generando descripcion...
+    </div>
+    <p class="desc-text" id="descText"></p>
+  </div>
+  <a class="buy-link" href="https://payhip.com/b/Pkf6Q" target="_blank">BUY ALL</a>
+</div>
+
+<script>
+  let imageList = [];
+  let lastIndex = -1;
+
+  // Carga la lista de imagenes del servidor
+  async function loadImageList() {
+    try {
+      const res = await fetch('/api/images');
+      if (!res.ok) throw new Error();
+      imageList = await res.json();
+      console.log('Imagenes cargadas:', imageList.length);
+    } catch (e) {
+      console.error('No se pudo conectar al servidor:', e);
+      document.getElementById('errorBox').classList.add('visible');
+      document.getElementById('btn').disabled = true;
+    }
+  }
+
+  async function generate() {
+    if (imageList.length === 0) return;
+
+    const btn         = document.getElementById('btn');
+    const content     = document.getElementById('content');
+    const photo       = document.getElementById('photo');
+    const skeleton    = document.getElementById('skeleton');
+    const descLoading = document.getElementById('descLoading');
+    const descText    = document.getElementById('descText');
+    const imgWrapper  = document.getElementById('imgWrapper');
+
+    btn.disabled = true;
+    btn.classList.add('spinning');
+
+    // Elegir imagen aleatoria distinta a la anterior
+    let idx;
+    do { idx = Math.floor(Math.random() * imageList.length); }
+    while (idx === lastIndex && imageList.length > 1);
+    lastIndex = idx;
+    const filename = imageList[idx];
+
+    // Reset UI
+    content.classList.remove('visible');
+    void content.offsetWidth;
+    content.classList.add('visible');
+    photo.style.opacity = '0';
+    photo.src = '';
+    skeleton.style.display = 'block';
+    imgWrapper.style.minHeight = '300px';
+    descLoading.style.display = 'none';
+    descText.classList.remove('visible');
+    descText.textContent = '';
+
+    // Cargar imagen desde /images/
+    await new Promise((resolve) => {
+      photo.onload = () => {
+        photo.style.opacity = '1';
+        skeleton.style.display = 'none';
+        imgWrapper.style.minHeight = '0';
+        resolve();
+      };
+      photo.onerror = resolve;
+      photo.src = '/images/' + encodeURIComponent(filename);
+    });
+
+    // Pedir descripcion a Claude
+    try {
+      const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: 'Sos un escritor conciso y evocador. Describis imagenes en 2-3 oraciones directas, sin floreos. El nombre del archivo puede darte pistas sobre el contenido. Respondes solo con el texto de la descripcion, nada mas.',
+          messages: [{ role: 'user', content: 'Describi esta imagen. Nombre del archivo: ' + filename }]
+        })
+      });
+      const data = await apiRes.json();
+      const desc = data.content.map(b => b.text || '').join('');
+      descLoading.style.display = 'none';
+      descText.textContent = desc;
+      descText.classList.add('visible');
+    } catch (e) {
+      descLoading.style.display = 'none';
+    }
+
+    btn.disabled = false;
+    btn.classList.remove('spinning');
+  }
+
+  loadImageList();
+</script>
+</body>
+</html>
