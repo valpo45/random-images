@@ -1,3 +1,5 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -7,71 +9,91 @@ const PORT = process.env.PORT || 3000;
 const R2_BASE_URL = 'https://pub-51aead7da52e45cfa58719a4912f8490.r2.dev';
 const ACCOUNT_ID  = 'd969d8be72f45907bb7cdbe0665b0308';
 const BUCKET      = 'random-images';
-const API_TOKEN   = 'cfut_PqPJNcHHxrSRPNnSwSi4aAFyN5ZKxh2ZW8olsLiA3a65599b';
+const API_TOKEN   = 'cfat_VtkMTUFkG30QPo2NBWqa5a8kTUFLY6s8zHfkXLOsa5bac18d';
 const IMAGE_EXTS  = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
 
 const mime = {
-  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-  '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp',
-  '.html': 'text/html', '.js': 'application/javascript',
+  '.html': 'text/html',
+  '.js': 'application/javascript',
 };
 
-// Cache de lista de imágenes (se actualiza cada 5 min)
 let imageCache = [];
 let lastFetch = 0;
 
-function fetchImageList() {
+function fetchPage(cursor) {
   return new Promise((resolve, reject) => {
+    let urlPath = '/client/v4/accounts/' + ACCOUNT_ID + '/r2/buckets/' + BUCKET + '/objects?per_page=1000';
+    if (cursor) urlPath += '&cursor=' + encodeURIComponent(cursor);
+
     const options = {
       hostname: 'api.cloudflare.com',
-      path: `/client/v4/accounts/${ACCOUNT_ID}/r2/buckets/${BUCKET}/objects?per_page=1000`,
-      headers: { 'Authorization': `Bearer ${API_TOKEN}` }
+      path: urlPath,
+      headers: { 'Authorization': 'Bearer ' + API_TOKEN }
     };
-    https.get(options, (res) => {
+
+    const req = https.get(options, function(res) {
       let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          const files = (json.result?.objects || [])
-            .map(o => o.key)
-            .filter(k => IMAGE_EXTS.includes(path.extname(k).toLowerCase()));
-          resolve(files);
-        } catch(e) { reject(e); }
+      res.on('data', function(chunk) { data += chunk; });
+      res.on('end', function() {
+        try { resolve(JSON.parse(data)); }
+        catch(e) { reject(e); }
       });
-    }).on('error', reject);
+    });
+    req.on('error', reject);
   });
+}
+
+async function fetchAllImages() {
+  let all = [];
+  let cursor = null;
+
+  while (true) {
+    const json = await fetchPage(cursor);
+    const objects = json.result || [];
+    const files = objects
+      .map(function(o) { return o.key; })
+      .filter(function(k) { return IMAGE_EXTS.includes(path.extname(k).toLowerCase()); });
+    all = all.concat(files);
+    console.log('  Página cargada: ' + all.length + ' imágenes hasta ahora...');
+
+    if (json.result_info && json.result_info.is_truncated && json.result_info.cursor) {
+      cursor = json.result_info.cursor;
+    } else {
+      break;
+    }
+  }
+
+  return all;
 }
 
 async function getImageList() {
   const now = Date.now();
-  if (imageCache.length === 0 || now - lastFetch > 5 * 60 * 1000) {
-    imageCache = await fetchImageList();
+  if (imageCache.length === 0 || now - lastFetch > 10 * 60 * 1000) {
+    console.log('  Cargando imágenes desde R2...');
+    imageCache = await fetchAllImages();
     lastFetch = now;
+    console.log('  TOTAL: ' + imageCache.length + ' imagenes cargadas.');
   }
   return imageCache;
 }
 
-const server = http.createServer(async (req, res) => {
+const server = http.createServer(async function(req, res) {
   const url = decodeURIComponent(req.url);
-
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  // Endpoint: lista de imágenes
   if (url === '/api/images') {
     try {
       const files = await getImageList();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(files));
     } catch(e) {
+      console.error('Error:', e.message);
       res.writeHead(500);
-      res.end(JSON.stringify({ error: 'No se pudo obtener la lista de imágenes' }));
+      res.end(JSON.stringify({ error: e.message }));
     }
     return;
   }
 
-  // Servir archivos estáticos (HTML)
   let filePath = (url === '/' || url === '/index.html') ? 'random-images.html' : url.slice(1);
   filePath = path.join(__dirname, filePath);
   if (fs.existsSync(filePath)) {
@@ -81,12 +103,18 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  res.writeHead(404); res.end('Not found');
+  res.writeHead(404);
+  res.end('Not found');
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async function() {
   console.log('');
-  console.log('  ✓ Servidor corriendo en http://localhost:' + PORT);
-  console.log('  ✓ Imágenes servidas desde Cloudflare R2');
+  console.log('  Servidor corriendo en http://localhost:' + PORT);
+  try {
+    await getImageList();
+    console.log('  Listo! Abri http://localhost:' + PORT + '/random-images.html');
+  } catch(e) {
+    console.error('  Error cargando imagenes:', e.message);
+  }
   console.log('');
 });
