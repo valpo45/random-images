@@ -208,26 +208,9 @@
 </div>
 
 <script>
-  let imageList = [];
-  let lastIndex = -1;
-
-  // Carga la lista de imagenes del servidor
-  async function loadImageList() {
-    try {
-      const res = await fetch('/api/images');
-      if (!res.ok) throw new Error();
-      imageList = await res.json();
-      console.log('Imagenes cargadas:', imageList.length);
-    } catch (e) {
-      console.error('No se pudo conectar al servidor:', e);
-      document.getElementById('errorBox').classList.add('visible');
-      document.getElementById('btn').disabled = true;
-    }
-  }
+  let lastFilename = null;
 
   async function generate() {
-    if (imageList.length === 0) return;
-
     const btn         = document.getElementById('btn');
     const content     = document.getElementById('content');
     const photo       = document.getElementById('photo');
@@ -238,13 +221,6 @@
 
     btn.disabled = true;
     btn.classList.add('spinning');
-
-    // Elegir imagen aleatoria distinta a la anterior
-    let idx;
-    do { idx = Math.floor(Math.random() * imageList.length); }
-    while (idx === lastIndex && imageList.length > 1);
-    lastIndex = idx;
-    const filename = imageList[idx];
 
     // Reset UI
     content.classList.remove('visible');
@@ -258,7 +234,21 @@
     descText.classList.remove('visible');
     descText.textContent = '';
 
-    // Cargar imagen desde /images/
+    // Pedir imagen aleatoria al servidor
+    let filename;
+    try {
+      const res = await fetch('/api/random' + (lastFilename ? '?last=' + encodeURIComponent(lastFilename) : ''));
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      filename = data.filename;
+      lastFilename = filename;
+    } catch(e) {
+      btn.disabled = false;
+      btn.classList.remove('spinning');
+      return;
+    }
+
+    // Cargar imagen desde R2
     await new Promise((resolve) => {
       photo.onload = () => {
         photo.style.opacity = '1';
@@ -270,7 +260,7 @@
       photo.src = 'https://pub-51aead7da52e45cfa58719a4912f8490.r2.dev/' + encodeURIComponent(filename);
     });
 
-    // Pedir descripcion a Claude
+    // Descripcion con Claude
     try {
       const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -294,8 +284,6 @@
     btn.disabled = false;
     btn.classList.remove('spinning');
   }
-
-  loadImageList();
 </script>
 </body>
 </html>

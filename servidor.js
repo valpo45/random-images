@@ -81,6 +81,27 @@ const server = http.createServer(async function(req, res) {
   const url = decodeURIComponent(req.url);
   res.setHeader('Access-Control-Allow-Origin', '*');
 
+  if (url.startsWith('/api/random')) {
+    try {
+      const files = await getImageList();
+      if (files.length === 0) {
+        res.writeHead(503);
+        res.end(JSON.stringify({ error: 'Cargando imagenes, intenta en unos segundos' }));
+        return;
+      }
+      const lastParam = new URL('http://x' + url).searchParams.get('last');
+      let idx;
+      do { idx = Math.floor(Math.random() * files.length); }
+      while (files[idx] === lastParam && files.length > 1);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ filename: files[idx] }));
+    } catch(e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   if (url === '/api/images') {
     try {
       const files = await getImageList();
