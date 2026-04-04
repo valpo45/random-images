@@ -15,6 +15,8 @@ const IMAGE_EXTS  = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
 const mime = {
   '.html': 'text/html',
   '.js': 'application/javascript',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
 };
 
 let imageCache = [];
